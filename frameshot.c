@@ -42,25 +42,50 @@ int (*close_infile) (handle_t handle);
 
 /* output file function pointers */
 static int (*open_outfile) (char *filename, handle_t *handle, int compression);
-static int (*write_image) (handle_t handle);
+// static int (*write_image) (handle_t handle);
 static int (*close_outfile) (handle_t handle);
 
 static int parse_options(int argc, char **argv, cli_opt_t *opt);
-static void show_help(void);
+static int grab_frames(cli_opt_t *opt);
 
 int main(int argc, char **argv)
 {
     cli_opt_t opt;
-    int fmt = 0;
+    int ret = 0;
 
     parse_options(argc, argv, &opt);
 
-    return 0;
+    ret = grab_frames(&opt);
+
+    return ret;
+}
+
+static void show_help(void)
+{
+#define HELP printf
+    HELP("Syntax: frameshot [options] infile\n"
+         "\n"
+         "Infile is a raw bitstream of one of the following codecs:\n"
+         "  YUV4MPEG\n"
+         "\n"
+         "Options:\n"
+         "\n"
+         "  -h, --help                  Displays this message.\n"
+        );
+    HELP("  -f, --frames <int,int,...>  Frames numbers to grab.\n");
+    HELP("  -o, --output <string>       Prefix to use for each output image.\n");
+    HELP("  -z, --compression <integer> Ammount of compression to use.\n");
+    HELP("  -1, --fast                  Use fastest compression.\n");
+    HELP("  -9, --best                  Use best (slowest) compression.\n");
+    HELP("\n");
 }
 
 static int parse_options(int argc, char **argv, cli_opt_t *opt)
 {
+    char *filename = NULL;
     int zlevel = Z_DEFAULT_COMPRESSION;
+    char *file_ext;
+    int is_y4m = 0;
 
     memset(opt, 0, sizeof(*opt));
 
@@ -71,15 +96,16 @@ static int parse_options(int argc, char **argv, cli_opt_t *opt)
     for (;;) {
         int long_options_index = -1;
         static struct option long_options[] = {
+            {"fast", no_argument, NULL, '1'},
+            {"best", no_argument, NULL, '9'},
+            {"frames", required_argument, NULL, 'f'},
             {"help", no_argument, NULL, 'h'},
             {"output", required_argument, NULL, 'o'},
             {"compression", required_argument, NULL, 'z'},
-            {"best", no_argument, NULL, '9'},
-            {"fast", no_argument, NULL, '1'},
             {0, 0, 0, 0}
         };
 
-        int c = getopt_long(argc, argv, "19ho:z:", long_options, &long_options_index);
+        int c = getopt_long(argc, argv, "19f:ho:z:", long_options, &long_options_index);
 
         if (c == -1) {
             break;
@@ -92,6 +118,8 @@ static int parse_options(int argc, char **argv, cli_opt_t *opt)
             case '9':
                 zlevel = Z_BEST_COMPRESSION;
                 break;
+            case 'f':
+
             case 'o':
                 break;
             case 'z':
@@ -105,23 +133,36 @@ static int parse_options(int argc, char **argv, cli_opt_t *opt)
                 exit(0);
         }
     }
+
+    /* Get the input file name */
+    if (optind > argc - 1) {
+        fprintf(stderr, "[error]: No input file.\n");
+        show_help();
+        return -1;
+    }
+    filename = argv[optind++];
+
+    file_ext = strrchr(filename, '.');
+    if (!strncasecmp(file_ext, ".y4m", 4))
+        is_y4m = 1;
+
+    if (is_y4m) {
+        open_infile = open_file_y4m;
+        read_frame = read_frame_y4m;
+        close_infile = close_file_y4m;
+    }
+
+    if (open_infile(filename, &opt->hin)) {
+        fprintf(stderr, "ERROR: could not open input file '%s'\n", filename);
+        return -1;
+    }
+
+    return 0;
 }
 
-static void show_help(void)
+static int grab_frames(cli_opt_t *opt)
 {
-#define HELP printf
-    HELP("Syntax: frameshot [options] infile <frames,...>\n"
-         "\n"
-         "Infile is a raw bitstream of one of the following codecs:\n"
-         "  YUV4MPEG\n"
-         "\n"
-         "Options:\n"
-         "\n"
-         "  -h, --help                  Displays this message.\n"
-        );
-    HELP("  -o, --output <string>       Prefix to use for each output image.\n");
-    HELP("  -z, --compression <integer> Ammount of compression to use.\n");
-    HELP("  -1, --fast                  Use fastest compression.\n");
-    HELP("  -9, --best                  Use best (slowest) compression.\n");
-    HELP("\n");
+    close_infile(opt->hin);
+
+    return 0;
 }
