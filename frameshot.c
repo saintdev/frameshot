@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <zlib.h>
@@ -36,7 +37,7 @@ typedef struct {
 
 /* input file function pointers */
 int (*open_infile) (char *filename, handle_t *handle);
-int (*read_frame) (handle_t handle, picture_t *p_pic, int i_frame);
+int (*read_frame) (handle_t handle, picture_t *pic, int framenum);
 int (*close_infile) (handle_t handle);
 
 /* output file function pointers */
@@ -45,6 +46,7 @@ static int (*write_image) (handle_t handle);
 static int (*close_outfile) (handle_t handle);
 
 static int parse_options(int argc, char **argv, cli_opt_t *opt);
+static void show_help(void);
 
 int main(int argc, char **argv)
 {
@@ -99,8 +101,27 @@ static int parse_options(int argc, char **argv, cli_opt_t *opt)
                 break;
             case 'h':
             default:
-//                 show_help();
+                show_help();
                 exit(0);
         }
     }
+}
+
+static void show_help(void)
+{
+#define HELP printf
+    HELP("Syntax: frameshot [options] infile <frames,...>\n"
+         "\n"
+         "Infile is a raw bitstream of one of the following codecs:\n"
+         "  YUV4MPEG\n"
+         "\n"
+         "Options:\n"
+         "\n"
+         "  -h, --help                  Displays this message.\n"
+        );
+    HELP("  -o, --output <string>       Prefix to use for each output image.\n");
+    HELP("  -z, --compression <integer> Ammount of compression to use.\n");
+    HELP("  -1, --fast                  Use fastest compression.\n");
+    HELP("  -9, --best                  Use best (slowest) compression.\n");
+    HELP("\n");
 }
