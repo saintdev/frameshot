@@ -156,10 +156,7 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
     if (!opt->hout) {
         char *outname = strdup(filename);
         char *ext = strrchr(outname, '.');
-        ext[1] = 'p';
-        ext[2] = 'n';
-        ext[3] = 'g';
-        ext[4] = 0x00;
+        strcpy( ext, ".png" );
         open_outfile(outname, &opt->hout, zlevel);
         free(outname);
     }
