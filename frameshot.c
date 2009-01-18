@@ -30,7 +30,6 @@ enum {
 };
 
 typedef struct {
-    char *filein;
     handle_t hout;
     handle_t hin;
 } cli_opt_t;
