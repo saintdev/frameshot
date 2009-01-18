@@ -16,3 +16,7 @@ typedef struct {
     /* In: raw data */
     image_t img;
 } picture_t;
+
+typedef struct {
+    uint32_t width, height;
+} config_t;

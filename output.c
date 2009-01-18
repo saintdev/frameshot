@@ -1,6 +1,8 @@
 
 #include <stdint.h>
 #include <malloc.h>
+#include <libavutil/avutil.h>
+#include <libswscale/swscale.h>
 #include <png.h>
 
 #include "common.h"
@@ -64,4 +66,44 @@ int close_file_png(handle_t handle)
     free(h);
 
     return ret;
+}
+
+int write_image_png(handle_t handle, picture_t *pic, config_t *config)
+{
+    png_output_t *h = handle;
+    uint8_t *out_data = malloc(config->width * config->height * 4);
+    uint8_t **rows = calloc(config->height, sizeof(*rows));
+    picture_t pic_out;
+    struct SwsContext *sws_ctx;
+    int i;
+
+    pic_out.img.plane[0] = out_data;
+    pic_out.img.plane[1] = pic_out.img.plane[2] = pic_out.img.plane[3] = NULL;
+    pic_out.img.stride[0] = 3 * config->width;
+    pic_out.img.stride[1] = pic_out.img.stride[2] = pic_out.img.stride[3] = 0;
+
+    sws_ctx = sws_getContext(config->width, config->height, PIX_FMT_YUV420P,
+                             config->width, config->height, PIX_FMT_RGB24,
+                             SWS_FAST_BILINEAR | SWS_ACCURATE_RND,
+                             NULL, NULL, NULL);
+
+    sws_scale(sws_ctx, pic->img.plane, pic->img.stride, 0, config->height, pic_out.img.plane, pic_out.img.stride);
+
+    __asm__ volatile ("emms\n\t");
+
+    png_set_IHDR(h->png, h->info, config->width, config->height,
+                 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+                 PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+
+    for (i = 0; i < config->height; i++)
+        rows[i] = pic_out.img.plane[0] + i * pic_out.img.stride[0];
+
+    png_set_rows(h->png, h->info, rows);
+
+    png_write_png(h->png, h->info, 0, NULL);
+
+    free(rows);
+    free(out_data);
+
+    return 0;
 }

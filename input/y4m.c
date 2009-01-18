@@ -25,7 +25,7 @@ typedef struct {
 #define Y4M_FRAME_MAGIC "FRAME"
 #define MAX_FRAME_HEADER 80
 
-int open_file_y4m(char *filename, handle_t *handle)
+int open_file_y4m(char *filename, handle_t *handle, config_t *config)
 {
     int i, n, d;
     int interlaced;
@@ -66,11 +66,11 @@ int open_file_y4m(char *filename, handle_t *handle)
             continue;
         switch (*tokstart++) {
             case 'W':              /* Width. Required. */
-                h->width = strtol(tokstart, &tokend, 10);
+                h->width = config->width = strtol(tokstart, &tokend, 10);
                 tokstart = tokend;
                 break;
             case 'H':              /* Height. Required. */
-                h->height = strtol(tokstart, &tokend, 10);
+                h->height = config->height = strtol(tokstart, &tokend, 10);
                 tokstart = tokend;
                 break;
             case 'C':              /* Color space */
@@ -95,7 +95,7 @@ int open_file_y4m(char *filename, handle_t *handle)
                 }
                 break;
             case 'F': /* Frame rate - 0:0 if unknown */
-                      /* Frame rate in is unimportant. */
+                      /* Frame rate in unimportant. */
                 if (sscanf(tokstart, "%d:%d", &n, &d) == 2 && n && d) {
                     reduce_fraction(&n, &d);
                     h->fps_num = n;

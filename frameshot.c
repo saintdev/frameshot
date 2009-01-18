@@ -36,26 +36,28 @@ typedef struct {
 } cli_opt_t;
 
 /* input file function pointers */
-int (*open_infile) (char *filename, handle_t *handle);
+int (*open_infile) (char *filename, handle_t *handle, config_t *config);
 int (*read_frame) (handle_t handle, picture_t *pic, int framenum);
 int (*close_infile) (handle_t handle);
 
 /* output file function pointers */
 static int (*open_outfile) (char *filename, handle_t *handle, int compression);
-// static int (*write_image) (handle_t handle);
+// static int (*set_outfile_param) (handle_t handle, config_t *config);
+static int (*write_image) (handle_t handle, picture_t *pic, config_t *config);
 static int (*close_outfile) (handle_t handle);
 
-static int parse_options(int argc, char **argv, cli_opt_t *opt);
-static int grab_frames(cli_opt_t *opt);
+static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt);
+static int grab_frames(config_t *config, cli_opt_t *opt);
 
 int main(int argc, char **argv)
 {
+    config_t config;
     cli_opt_t opt;
     int ret = 0;
 
-    parse_options(argc, argv, &opt);
+    parse_options(argc, argv, &config, &opt);
 
-    ret = grab_frames(&opt);
+    ret = grab_frames(&config, &opt);
 
     return ret;
 }
@@ -80,7 +82,7 @@ static void show_help(void)
     HELP("\n");
 }
 
-static int parse_options(int argc, char **argv, cli_opt_t *opt)
+static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt)
 {
     char *filename = NULL;
     int zlevel = Z_DEFAULT_COMPRESSION;
@@ -89,8 +91,14 @@ static int parse_options(int argc, char **argv, cli_opt_t *opt)
 
     memset(opt, 0, sizeof(*opt));
 
+    /* Default input driver */
+    open_infile = open_file_y4m;
+    read_frame = read_frame_y4m;
+    close_infile = close_file_y4m;
+
     /* Default output driver */
     open_outfile = open_file_png;
+    write_image = write_image_png;
     close_outfile = close_file_png;
 
     for (;;) {
@@ -146,13 +154,24 @@ static int parse_options(int argc, char **argv, cli_opt_t *opt)
     if (!strncasecmp(file_ext, ".y4m", 4))
         is_y4m = 1;
 
+    if (!opt->hout) {
+        char *outname = strdup(filename);
+        char *ext = strrchr(outname, '.');
+        ext[1] = 'p';
+        ext[2] = 'n';
+        ext[3] = 'g';
+        ext[4] = 0x00;
+        open_outfile(outname, &opt->hout, zlevel);
+        free(outname);
+    }
+
     if (is_y4m) {
         open_infile = open_file_y4m;
         read_frame = read_frame_y4m;
         close_infile = close_file_y4m;
     }
 
-    if (open_infile(filename, &opt->hin)) {
+    if (open_infile(filename, &opt->hin, config)) {
         fprintf(stderr, "ERROR: could not open input file '%s'\n", filename);
         return -1;
     }
@@ -160,9 +179,25 @@ static int parse_options(int argc, char **argv, cli_opt_t *opt)
     return 0;
 }
 
-static int grab_frames(cli_opt_t *opt)
+static int grab_frames(config_t *config, cli_opt_t *opt)
 {
+    picture_t pic;
+
+    pic.img.plane[0] = malloc(3 * config->width * config->height / 2);
+    pic.img.plane[1] = pic.img.plane[0] + config->width * config->height;
+    pic.img.plane[2] = pic.img.plane[1] + config->width * config->height / 4;
+    pic.img.plane[3] = NULL;
+
+    pic.img.stride[0] = config->width;
+    pic.img.stride[1] = pic.img.stride[2] = config->width / 2;
+    pic.img.stride[3] = 0;
+
+    read_frame(opt->hin, &pic, 1);
+
+    write_image(opt->hout, &pic, config);
+
     close_infile(opt->hin);
+    close_outfile(opt->hout);
 
     return 0;
 }
