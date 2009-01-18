@@ -7,6 +7,8 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR})
 
 FIND_PACKAGE(ZLIB REQUIRED)
 FIND_PACKAGE(PNG REQUIRED)
+FIND_PACKAGE(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED libswscale libavutil)
 
 # ########## frameshot executable ##########
 # Sources:
@@ -29,7 +31,7 @@ SET(frameshot_executable_HDRS
 
 # actual target:
 ADD_EXECUTABLE(frameshot ${frameshot_executable_SRCS})
-TARGET_LINK_LIBRARIES(frameshot ${PNG_LIBRARIES} ${ZLIB_LIBRARIES})
+TARGET_LINK_LIBRARIES(frameshot ${PNG_LIBRARIES} ${ZLIB_LIBRARIES} ${FFMPEG_LIBRARIES})
 
 # add install target:
 INSTALL(TARGETS frameshot DESTINATION bin)
