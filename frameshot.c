@@ -1,16 +1,20 @@
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <limits.h>
 
 #include <zlib.h>
 
-#include <libavcodec/avcodec.h>
-#include <libavutil/mathematics.h>
 
 #define _GNU_SOURCE
 #include <getopt.h>
 
 #include "common.h"
+#include "utils.h"
 #include "output.h"
 #include "input.h"
 
@@ -30,7 +34,8 @@ enum {
 };
 
 typedef struct {
-    handle_t hout;
+    char *outdir;
+    int zlevel;
     handle_t hin;
 } cli_opt_t;
 
@@ -74,7 +79,7 @@ static void show_help(void)
          "  -h, --help                  Displays this message.\n"
         );
     HELP("  -f, --frames <int,int,...>  Frames numbers to grab.\n");
-    HELP("  -o, --output <string>       Prefix to use for each output image.\n");
+    HELP("  -o, --outdir <string>       Output directory for images.\n");
     HELP("  -z, --compression <integer> Ammount of compression to use.\n");
     HELP("  -1, --fast                  Use fastest compression.\n");
     HELP("  -9, --best                  Use best (slowest) compression.\n");
@@ -85,8 +90,9 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
 {
     char *filename = NULL;
     int zlevel = Z_DEFAULT_COMPRESSION;
-    char *file_ext;
+    char *file_ext, *token;
     int is_y4m = 0;
+    struct stat sb;
 
     memset(opt, 0, sizeof(*opt));
 
@@ -107,7 +113,7 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
             {"best", no_argument, NULL, '9'},
             {"frames", required_argument, NULL, 'f'},
             {"help", no_argument, NULL, 'h'},
-            {"output", required_argument, NULL, 'o'},
+            {"outdir", required_argument, NULL, 'o'},
             {"compression", required_argument, NULL, 'z'},
             {0, 0, 0, 0}
         };
@@ -126,13 +132,35 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
                 zlevel = Z_BEST_COMPRESSION;
                 break;
             case 'f':
-
+                for (config->frame_cnt = 0; config->frame_cnt < MAX_FRAMES; config->frame_cnt++, optarg = NULL) {
+                    token = strtok(optarg, ",");
+                    if (token == NULL)
+                        break;
+                    config->frames[config->frame_cnt] = atoi(token);
+                }
+                qsort(config->frames, config->frame_cnt, sizeof(*config->frames), intcmp);
+                break;
             case 'o':
+                opt->outdir = strdup(optarg);
+                if (stat(opt->outdir, &sb) < 0) {
+                    if (mkdir(opt->outdir, S_IRWXU) < 0) {
+                        fprintf(stderr, "ERROR: Unable to create output directory.\n");
+                        perror("mkdir");
+                        return -1;
+                    }
+                } else {
+                    if (!S_ISDIR(sb.st_mode)) {
+                        fprintf(stderr, "ERROR: Outdir exists, and is not a directory.");
+                        return -1;
+                    }
+                }
                 break;
             case 'z':
-                zlevel = atoi(optarg);
-                if (zlevel < 0 || zlevel > 9)
-                    zlevel = Z_DEFAULT_COMPRESSION;
+                if (optarg == NULL || optarg[0] < '0' || optarg[0] > '9') {
+                    opt->zlevel = Z_DEFAULT_COMPRESSION;
+                    break;
+                }
+                opt->zlevel = atoi(optarg);
                 break;
             case 'h':
             default:
@@ -143,7 +171,7 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
 
     /* Get the input file name */
     if (optind > argc - 1) {
-        fprintf(stderr, "[error]: No input file.\n");
+        fprintf(stderr, "ERROR: No input file.\n");
         show_help();
         return -1;
     }
@@ -153,13 +181,8 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
     if (!strncasecmp(file_ext, ".y4m", 4))
         is_y4m = 1;
 
-    if (!opt->hout) {
-        char *outname = strdup(filename);
-        char *ext = strrchr(outname, '.');
-        strcpy( ext, ".png" );
-        open_outfile(outname, &opt->hout, zlevel);
-        free(outname);
-    }
+    if (!opt->outdir)
+        opt->outdir = getcwd(NULL, 0);
 
     if (is_y4m) {
         open_infile = open_file_y4m;
@@ -177,7 +200,10 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
 
 static int grab_frames(config_t *config, cli_opt_t *opt)
 {
+    handle_t hout;
     picture_t pic;
+    int i;
+    char tmp[PATH_MAX];
 
     pic.img.plane[0] = malloc(3 * config->width * config->height / 2);
     pic.img.plane[1] = pic.img.plane[0] + config->width * config->height;
@@ -188,12 +214,19 @@ static int grab_frames(config_t *config, cli_opt_t *opt)
     pic.img.stride[1] = pic.img.stride[2] = config->width / 2;
     pic.img.stride[3] = 0;
 
-    read_frame(opt->hin, &pic, 1);
+    for (i = 0; i < config->frame_cnt; i++) {
+        read_frame(opt->hin, &pic, config->frames[i]);
 
-    write_image(opt->hout, &pic, config);
+        snprintf(tmp, PATH_MAX, "%s/%05d.png", opt->outdir, config->frames[i]);
+        open_outfile(tmp, &hout, opt->zlevel);
+        write_image(hout, &pic, config);
+        close_outfile(hout);
+    }
 
     close_infile(opt->hin);
-    close_outfile(opt->hout);
+
+    if (opt->outdir)
+        free(opt->outdir);
 
     return 0;
 }

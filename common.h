@@ -1,4 +1,6 @@
 
+#define MAX_FRAMES 1024
+
 typedef void *handle_t;
 
 typedef struct {
@@ -17,6 +19,9 @@ typedef struct {
     image_t img;
 } picture_t;
 
-typedef struct {
+typedef struct
+{
     uint32_t width, height;
+    int frame_cnt;
+    uint32_t frames[MAX_FRAMES];
 } config_t;

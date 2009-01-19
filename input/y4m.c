@@ -174,6 +174,7 @@ int read_frame_y4m(handle_t handle, picture_t *pic, int framenum)
         || fread(pic->img.plane[2], 1, h->width * h->height / 4, h->fp) <= 0)
         return -1;
 
+    pic->pts = framenum;
     h->next_frame = framenum + 1;
 
     return 0;
