@@ -26,13 +26,6 @@ enum {
     FORMAT_M4V
 };
 
-enum {
-    COLORSPACE_420,
-    COLORSPACE_422,
-    COLORSPACE_444,
-    COLORSPACE_444A
-};
-
 typedef struct {
     char *outdir;
     int zlevel;
@@ -92,6 +85,7 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
     int zlevel = Z_DEFAULT_COMPRESSION;
     char *file_ext, *token;
     int is_y4m = 0;
+    int is_dirac = 0;
     struct stat sb;
 
     memset(opt, 0, sizeof(*opt));
@@ -180,6 +174,8 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
     file_ext = strrchr(filename, '.');
     if (!strncasecmp(file_ext, ".y4m", 4))
         is_y4m = 1;
+    else if (!strncasecmp(file_ext, ".drc", 4))
+        is_dirac = 1;
 
     if (!opt->outdir)
         opt->outdir = getcwd(NULL, 0);
@@ -188,6 +184,12 @@ static int parse_options(int argc, char **argv, config_t *config, cli_opt_t *opt
         open_infile = open_file_y4m;
         read_frame = read_frame_y4m;
         close_infile = close_file_y4m;
+    }
+
+    if (is_dirac) {
+        open_infile = open_file_dirac;
+        read_frame = read_frame_dirac;
+        close_infile = close_file_dirac;
     }
 
     if (open_infile(filename, &opt->hin, config)) {
@@ -205,7 +207,7 @@ static int grab_frames(config_t *config, cli_opt_t *opt)
     int i;
     char tmp[PATH_MAX];
 
-    pic.img.plane[0] = malloc(3 * config->width * config->height / 2);
+    pic.img.plane[0] = calloc(1, 3 * config->width * config->height / 2);
     pic.img.plane[1] = pic.img.plane[0] + config->width * config->height;
     pic.img.plane[2] = pic.img.plane[1] + config->width * config->height / 4;
     pic.img.plane[3] = NULL;
