@@ -88,7 +88,7 @@ static void show_help(void)
     HELP("Syntax: frameshot [options] infile\n"
          "\n"
          "Infile is a raw bitstream of one of the following codecs:\n"
-         "  YUV4MPEG\n"
+         "  YUV4MPEG(*.y4m), Dirac(*.drc)\n"
          "\n"
          "Options:\n"
          "\n"
