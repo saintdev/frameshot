@@ -1,3 +1,26 @@
+/*****************************************************************************
+* dirac.c: Dirac parser.
+*****************************************************************************
+* Copyright (C) 2009
+*
+* Authors: Nathan Caldwell <saintdev@gmail.com>
+*          The authors of schroedinger-tools.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02111, USA.
+*****************************************************************************/
+
 #include <stdio.h>
 #include <string.h>
 #include <schroedinger/schro.h>
@@ -68,6 +91,7 @@ int open_file_dirac(char *filename, handle_t *handle, config_t *config)
     return 0;
 }
 
+/* Lots of this is from schroedinger-tools */
 int read_frame_dirac(handle_t handle, picture_t *pic, int framenum)
 {
     dirac_input_t *h = handle;
