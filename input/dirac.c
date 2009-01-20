@@ -10,6 +10,8 @@ typedef struct {
     SchroVideoFormat *format;
 } dirac_input_t;
 
+#define DIRAC_PARSE_MAGIC "BBCD"
+
 int parse_packet(dirac_input_t *h, uint8_t **data, int *pkt_size);
 static void buffer_free(SchroBuffer *buf, void *priv);
 
@@ -187,7 +189,7 @@ int parse_packet(dirac_input_t * h, uint8_t **data, int *pkt_size)
         return -1;
     }
 
-    if (header[0] != 'B' || header[1] != 'B' || header[2] != 'C' || header[3] != 'D') {
+    if (strncmp((char *)header, DIRAC_PARSE_MAGIC, strlen(DIRAC_PARSE_MAGIC))) {
         fprintf(stderr, "ERROR: header magic incorrect\n");
         return -1;
     }
