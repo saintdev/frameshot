@@ -8,6 +8,8 @@
 #include "utils.h"
 #include "y4m.h"
 
+/* Most of this is from x264 */
+
 /* YUV4MPEG2 raw 420 yuv file operation */
 typedef struct {
     FILE *fp;
@@ -132,7 +134,7 @@ int open_file_y4m(char *filename, handle_t *handle, config_t *config)
             h->width, h->height, h->fps_num, h->fps_den,
             h->par_width, h->par_height);
 
-    *handle = (handle_t) h;
+    *handle = (handle_t)h;
     return 0;
 }
 
