@@ -1,0 +1,2 @@
+-Implement other bitstream handlers. H.264 Annex B, MPEG-4.
+-Implement actual demuxers. At least handle ogg and matroska.
